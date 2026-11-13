@@ -1,0 +1,104 @@
+name: daoos-browser
+x-logging: &logging
+  driver: json-file
+  options: {max-size: "5m", max-file: "3"}
+services:
+  browser:
+    build: .
+    image: daoos-browser:mvp
+    init: true
+    restart: unless-stopped
+    user: "10001:10001"
+    stop_grace_period: 60s
+    networks: [browser_internal]
+    environment:
+      DATABASE_URL: postgresql+psycopg://browser@db/browser
+      PGPASSFILE: /run/secrets/pgpass
+      PROFILE_KEY_FILE: /run/secrets/profile_key
+      PUBLIC_URL: ${PUBLIC_URL:-http://127.0.0.1:18131}
+      BROWSER_PROXY: http://egress:8888
+      DATA_DIR: /data
+      RUNTIME_DIR: /run/daoos-browser
+      MAX_SESSIONS: ${MAX_SESSIONS:-1}
+      OPERATION_TIMEOUT: ${OPERATION_TIMEOUT:-60}
+      IDLE_SECONDS: ${IDLE_SECONDS:-900}
+      MAX_ARTIFACT_BYTES: ${MAX_ARTIFACT_BYTES:-268435456}
+      MAX_PROFILE_VAULT_BYTES: ${MAX_PROFILE_VAULT_BYTES:-268435456}
+      CHROMIUM_SANDBOX: "true"
+    volumes:
+      - browser_data:/data
+      - ./secrets/profile_key:/run/secrets/profile_key:ro
+      - ./secrets/pgpass:/run/secrets/pgpass:ro
+    tmpfs:
+      - /run/daoos-browser:size=268435456,uid=10001,gid=10001,mode=0700
+      - /tmp:size=134217728,mode=1777
+    read_only: true
+    shm_size: 128m
+    cap_drop: [ALL]
+    ulimits:
+      core: 0
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./ops/seccomp-chromium.json
+      - apparmor=daoos-browser
+      - systempaths=unconfined
+    pids_limit: 180
+    mem_limit: 768m
+    memswap_limit: 768m
+    cpus: 0.75
+    logging: *logging
+    depends_on:
+      db: {condition: service_healthy}
+      egress: {condition: service_started}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request,os; r=urllib.request.Request('http://127.0.0.1:8000/health',headers={'Host':__import__('urllib.parse',fromlist=['urlsplit']).urlsplit(os.environ['PUBLIC_URL']).netloc}); urllib.request.urlopen(r,timeout=3)"]
+      interval: 30s
+      start_period: 120s
+      timeout: 10s
+      retries: 3
+  egress:
+    ports: ["127.0.0.1:18131:8000"]
+    image: daoos-browser:mvp
+    command: [python, -m, browser.egress]
+    environment:
+      EGRESS_INTERNAL_CIDRS: ${EGRESS_INTERNAL_CIDRS:-}
+    init: true
+    restart: unless-stopped
+    networks: [browser_internal, egress]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 64m
+    memswap_limit: 64m
+    cpus: 0.15
+    pids_limit: 20
+    logging: *logging
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    networks: [browser_internal]
+    environment:
+      POSTGRES_USER: browser
+      POSTGRES_DB: browser
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    command: [postgres, -c, shared_buffers=16MB, -c, max_connections=15]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./secrets/db_password:/run/secrets/db_password:ro
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.15
+    pids_limit: 40
+    logging: *logging
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U browser -d browser"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+networks:
+  browser_internal: {internal: true}
+  egress: {}
+volumes:
+  browser_data: {}
+  postgres_data: {}

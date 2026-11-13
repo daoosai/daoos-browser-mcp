@@ -1,0 +1,8 @@
+# Host audit found the EXACT compatible Chromium revision already installed.
+# This override reuses read-only binaries; no existing browser profile is mounted.
+services:
+  browser:
+    build:
+      args: {INSTALL_BROWSER: "false"}
+    volumes:
+      - /root/.cache/ms-playwright:/ms-playwright:ro

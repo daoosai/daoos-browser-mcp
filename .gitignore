@@ -218,3 +218,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# DAOOS Browser runtime (never commit credentials, profiles or customer screenshots)
+secrets/
+.local/
+data/
+artifacts/
+*.db
+*.db-*
+.env

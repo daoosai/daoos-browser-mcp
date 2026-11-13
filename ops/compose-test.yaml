@@ -1,0 +1,22 @@
+# Integration fixture: explicit /32 exception on a dedicated internal network.
+# Never use this override for production.
+services:
+  fixture:
+    image: daoos-browser:mvp
+    command: [python, /tests/fixture.py]
+    networks:
+      browser_internal:
+        ipv4_address: 172.30.233.10
+    volumes: ["./tests:/tests:ro"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 32m
+    cpus: 0.1
+  egress:
+    environment:
+      EGRESS_INTERNAL_CIDRS: 172.30.233.10/32
+networks:
+  browser_internal:
+    ipam:
+      config: [{subnet: 172.30.233.0/24}]
