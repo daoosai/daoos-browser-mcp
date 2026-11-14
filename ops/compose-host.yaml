@@ -2,6 +2,10 @@
 # This override reuses read-only binaries; no existing browser profile is mounted.
 services:
   browser:
+    # One headed Chromium needs margin above its observed 768 MiB peak.
+    # This host has 4 GiB RAM; capacity remains one browser and swap is disabled.
+    mem_limit: 896m
+    memswap_limit: 896m
     build:
       args: {INSTALL_BROWSER: "false"}
     volumes:

@@ -130,3 +130,13 @@ last metering interval may be lost; the state records this limitation.
 Database schema upgrades beyond this first release require explicit migrations.
 Keep the previous immutable image for rollback; do not roll back a database
 schema automatically. PostgreSQL and vault volumes are independent of containers.
+
+The audited host override now sets Browser RAM/no-swap to 896 MiB, keeping one
+active browser. At 768 MiB the container recorded repeated memory-limit reclaim
+and an additional restored-profile launch timed out. The unfinished process was
+stopped; a fresh-profile CRM launch/navigation subsequently completed. The limit
+was raised only after measuring about 1 GiB host memory available. This is margin
+for the existing single browser, not authorization to raise session capacity.
+The change was applied live with Docker update and is persisted in
+`ops/compose-host.yaml`; a later Compose reconciliation may recreate Browser,
+so first close/save any active operator session.
