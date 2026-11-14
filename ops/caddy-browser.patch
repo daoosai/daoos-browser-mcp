@@ -1,0 +1,20 @@
+--- /etc/caddy/Caddyfile
++++ /etc/caddy/Caddyfile
+@@ -7,0 +8,17 @@
++	# Insert inside the EXISTING oknakomfort72.ru site, before catch-all handlers.
++	# Do not create a second site block for the same hostname.
++	redir /browser /browser/ 308
++	handle_path /browser/* {
++	    reverse_proxy 127.0.0.1:18131 {
++	        flush_interval -1
++	    }
++	}
++	handle /.well-known/oauth-authorization-server/browser {
++	    rewrite * /.well-known/oauth-authorization-server
++	    reverse_proxy 127.0.0.1:18131
++	}
++	handle /.well-known/oauth-protected-resource/browser/mcp {
++	    rewrite * /.well-known/oauth-protected-resource/mcp
++	    reverse_proxy 127.0.0.1:18131
++	}
++
