@@ -46,6 +46,12 @@ def test_api_auth_and_origin(client, setup):
 
 def test_operator_login_origin(client, setup):
     c, store, p, raw = setup
+    page = client.get("/operator/login")
+    assert page.headers["referrer-policy"] == "same-origin"
+    for origin in ("null", "https://evil.test", "https://chatgpt.com"):
+        denied = client.post("/operator/login", data={"api_key": raw}, headers={"Origin": origin})
+        assert denied.status_code == 403
+        assert "browser_operator" not in denied.cookies
     assert client.post("/operator/login", data={"api_key": raw}).status_code == 403
     response = client.post("/operator/login", data={"api_key": raw}, headers={"Origin": c.origin})
     assert response.status_code == 200

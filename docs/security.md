@@ -18,6 +18,10 @@ tested with the actual ChatGPT account before acceptance.
 
 All HTTP/WebSocket requests check Host and Origin. Operator changes require the
 exact service Origin. Operator cookies are Secure, HttpOnly, SameSite=Strict;
+responses use Referrer-Policy `same-origin`. Using `no-referrer` would make
+native browser form POSTs send Origin `null` and fail the strict CSRF guard.
+Opaque/null and foreign origins remain denied; the native form is verified in
+a disposable sandboxed Chromium with deliberately invalid credentials.
 keys are never accepted in URLs. Rate limits are per source address (the local
 reverse proxy shares that budget); quotas are per user and key. Default request
 body cap is 1 MiB, including chunked bodies. The single-worker limiter is not a

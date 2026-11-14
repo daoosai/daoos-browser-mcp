@@ -114,7 +114,10 @@ class Guard:
         async def private_send(message):
             if message["type"] == "http.response.start":
                 message.setdefault("headers", []).extend([(b"cache-control", b"no-store"), (b"x-content-type-options", b"nosniff"),
-                    (b"referrer-policy", b"no-referrer"), (b"x-frame-options", b"DENY")])
+                    # no-referrer makes native form POSTs send Origin: null.
+                    # Preserve same-origin form provenance without leaking
+                    # referrers to external sites; strict Origin checks remain.
+                    (b"referrer-policy", b"same-origin"), (b"x-frame-options", b"DENY")])
             await send(message)
         try:
             await self.app(scope, receive, private_send)
