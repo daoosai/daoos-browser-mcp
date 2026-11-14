@@ -11,7 +11,7 @@ import time
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request, WebSocket, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.requests import HTTPConnection
 from mcp import types
@@ -59,6 +59,10 @@ class Guard:
         async def fail(status, code):
             if scope["type"] == "websocket":
                 return await send({"type": "websocket.close", "code": 4403})
+            if (status == 401 and scope.get("method") == "GET" and
+                (path == "/operator" or path.startswith("/operator/")) and
+                b"text/html" in headers.get(b"accept", b"")):
+                return await RedirectResponse(self.config.public_url+"/operator/login", status_code=303)(scope, receive, send)
             challenge = 'Bearer resource_metadata="'+self.config.public_url+'/.well-known/oauth-protected-resource"'
             return await JSONResponse({"error": code}, status_code=status, headers={"WWW-Authenticate": challenge})(scope, receive, send)
         host = headers.get(b"host", b"").decode()
@@ -245,31 +249,62 @@ def create_app(config=None, store=None, engine=None):
         store.put("actions", fid, p, {"kind": "upload"})
         return {"file_id": fid}
 
+    def operator_login_page(error=None, status=200):
+        alert = '<p role="alert">'+escape(error)+'</p>' if error else ''
+        return HTMLResponse(f'''<!doctype html><html lang="ru"><meta charset="utf-8"><title>DAOOS Browser</title>
+        <h1>Вход оператора DAOOS Browser</h1>
+        <p>Введите выданный вам ключ доступа оператора, начинающийся с <code>dbk_</code>.</p>
+        <p>Это не пароль CRM. Пароль сайта вводится позже, внутри экрана браузера.</p>{alert}
+        <form method="post" action="{escape(config.public_url)}/operator/login">
+        <label for="api_key">Ключ доступа оператора</label>
+        <input id="api_key" type="password" name="api_key" autocomplete="off" spellcheck="false" required>
+        <button>Войти</button></form></html>''', status_code=status)
+
     @app.get("/operator/login", response_class=HTMLResponse)
-    async def login_page():
-        return '<!doctype html><meta charset="utf-8"><title>DAOOS Browser</title><h1>Вход оператора</h1><form method="post"><input type="password" name="api_key" autocomplete="off" required><button>Войти</button></form>'
+    async def login_page(): return operator_login_page()
 
     @app.post("/operator/login")
     async def login(request: Request):
         # Origin required on credential forms, including when deployed behind HTTPS.
         if request.headers.get("origin") != config.origin: raise HTTPException(403, "origin_required")
         form = await request.form()
-        raw_key = form.get("api_key", "")
-        if not raw_key.startswith("dbk_"): raise HTTPException(403, "provisioned_operator_key_required")
-        p = store.authenticate(raw_key)
-        p.require("operator")
+        supplied = form.get("api_key", "")
+        raw_key = supplied.strip() if isinstance(supplied, str) else ""
+        html = "text/html" in request.headers.get("accept", "")
+        if not raw_key.startswith("dbk_"):
+            if html: return operator_login_page("Нужен ключ оператора, начинающийся с dbk_. Пароль CRM здесь не подходит.", 403)
+            raise HTTPException(403, "provisioned_operator_key_required")
+        try:
+            p = store.authenticate(raw_key)
+            p.require("operator")
+        except Denied:
+            if html: return operator_login_page("Ключ недействителен, отозван или не даёт прав оператора.", 403)
+            raise
         raw = "dbc_"+secrets.token_urlsafe(32)
         store.put("api_keys", digest(raw), p, {"scopes": sorted(p.scopes), "revoked": False, "expires": time.time()+3600,
             "parent_key": p.key, "cookie_only": True})
-        response = JSONResponse({"logged_in": True, "sessions_url": config.public_url+"/api/sessions"})
+        response = (RedirectResponse(config.public_url+"/operator", status_code=303) if html else
+            JSONResponse({"logged_in": True, "sessions_url": config.public_url+"/api/sessions"}))
         response.set_cookie("browser_operator", raw, httponly=True, secure=config.secure_cookies, samesite="strict", max_age=3600, path=urlsplit(config.public_url).path or "/")
         return response
+
+    @app.get("/operator", response_class=HTMLResponse)
+    async def operator_sessions():
+        p = identity.get()
+        p.require("operator")
+        live = [s for s in store.list("sessions", p) if s.get("status") == "active"]
+        links = ''.join('<li><a href="'+escape(config.public_url+'/operator/'+s['id'])+'">Открыть экран браузера</a></li>' for s in live)
+        body = '<ul>'+links+'</ul>' if links else '<p>Активных сессий нет. Попросите агента создать браузерную сессию через MCP.</p>'
+        return '<!doctype html><html lang="ru"><meta charset="utf-8"><title>DAOOS Browser</title><h1>Браузерные сессии</h1>'+body+'</html>'
 
     @app.get("/operator/{sid}", response_class=HTMLResponse)
     async def operator(sid: str):
         p = identity.get()
         p.require("operator")
-        engine.session(sid, p)
+        try: engine.session(sid, p)
+        except Denied:
+            return HTMLResponse('<!doctype html><meta charset="utf-8"><h1>Сессия недоступна или уже закрыта</h1><p><a href="'+
+                escape(config.public_url+'/operator')+'">Открыть список активных сессий</a></p>', status_code=404)
         return f'''<!doctype html><html lang="ru"><meta charset="utf-8"><title>DAOOS Browser — оператор</title>
         <h1>Сессия {escape(sid)}</h1><p>Перед ручным входом нажмите «Взять управление». Агент будет заблокирован.</p>
         <button onclick="handoff('manual')">Взять управление</button><button onclick="handoff('agent')">Вернуть агенту</button>

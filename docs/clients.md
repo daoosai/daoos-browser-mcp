@@ -85,3 +85,11 @@ The client key goes on the Browser OAuth consent page; the operator key goes at
 independent credential and are entered only directly into the site's VNC screen.
 A session idle for 15 minutes closes automatically. Reopen its saved profile
 through MCP rather than assuming the previous live session still exists.
+
+The operator form takes the **value** of the operator key (starts with `dbk_`),
+not a file path, terminal command, CRM password or the read/write-only ChatGPT
+key. Whitespace around a pasted key is ignored. A normal browser login redirects
+to `/browser/operator`, where only the owner's active sessions are listed.
+Unauthenticated browser screen links redirect to login; MCP/API clients still
+receive HTTP 401. Invalid browser login submissions show a message on the form
+without echoing the entered value. An expired screen links back to active sessions.

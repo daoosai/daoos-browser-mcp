@@ -60,6 +60,30 @@ def test_operator_login_origin(client, setup):
     assert client.post("/mcp", json={}).status_code == 401
 
 
+def test_operator_html_login_and_scopes(client, setup):
+    c, store, p, raw = setup
+    headers = {"Origin": c.origin, "Accept": "text/html"}
+    for wrong in ("crmPasswordShouldNotBeReflected", "dbk_invalid_test_key"):
+        response = client.post('/operator/login', data={'api_key': wrong}, headers=headers)
+        assert response.status_code == 403 and 'role="alert"' in response.text
+        assert wrong not in response.text
+    limited = store.issue_key(p, {'read', 'write'})
+    assert client.post('/operator/login', data={'api_key': limited}, headers=headers).status_code == 403
+    store.put('sessions', 'session_owned', p, {'status': 'active'})
+    response = client.post('/operator/login', data={'api_key': '\n '+raw+' \n'}, headers=headers, follow_redirects=False)
+    assert response.status_code == 303 and response.headers['location'] == c.public_url+'/operator'
+    assert 'HttpOnly' in response.headers['set-cookie']
+    page = client.get('/operator', headers={'Accept': 'text/html'})
+    assert page.status_code == 200 and '/operator/session_owned' in page.text
+
+
+def test_operator_browser_requires_login_but_mcp_stays_401(client):
+    response = client.get('/operator/old_session', headers={'Accept': 'text/html'}, follow_redirects=False)
+    assert response.status_code == 303 and response.headers['location'].endswith('/operator/login')
+    assert client.get('/operator/old_session').status_code == 401
+    assert client.get('/mcp', headers={'Accept': 'text/html'}).status_code == 401
+
+
 def test_oauth_pkce_resource_and_single_use(client, setup):
     c, store, p, raw = setup
     uri = c.redirect_uris[0]
