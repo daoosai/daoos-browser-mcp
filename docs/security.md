@@ -61,6 +61,6 @@ path under an existing domain shares its origin with the other hosted apps); ind
 and a dedicated security review; multi-instance locks; managed secret rotation;
 organization-wide quotas; durable retention for task/audit records; resumable
 uploads and bounded streaming downloads; OAuth refresh/CIMD/SSO interoperability;
-precise crash accounting; backup restore drill. Native browser sandboxing is
+precise crash accounting; offsite backup and full disaster recovery. Native browser sandboxing is
 necessary but does not prove absence of browser/kernel vulnerabilities. A passed
 unit test is not a penetration test.

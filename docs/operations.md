@@ -49,6 +49,11 @@ reloading an existing production reverse proxy. Do not duplicate the domain bloc
 The internal app checks Host against the configured public authority and checks
 Origin against its scheme/authority. Operator cookies require HTTPS.
 
+The audited host uses a bounded `OPERATION_TIMEOUT=90` in its private `.env`;
+the portable Compose default remains 60 seconds. Run acceptance clients on the
+host or a separate machine, outside the Browser memory cgroup. Importing a full
+MCP test client inside the 768 MiB browser container competes with Chromium.
+
 For a different provider, implement BillingProvider outside browser commands.
 Do not enable real payments in the MVP.
 
@@ -70,6 +75,21 @@ contains no production credentials. The integration script verifies actual MCP,
 SPA/ARIA/images, one-time approval, tasks, profile reuse, VNC control and
 performs only observation/navigation on the CRM. Store screenshots and raw
 reports privately; never commit customer data to this public repository.
+
+`ops/public-check.py` exercises the real HTTPS route, OAuth PKCE, replay denial,
+operator cookie, MCP images and WSS/RFB handoff. Pass an owner-only local
+`--operator-key-file` and a private `--report-dir`; secrets are not printed.
+`ops/tenant-check.py` runs live owner/tenant checks from outside the Browser
+cgroup, using a protected `--tenant-file` prepared with temporary test credentials
+and known owner resource IDs. It revokes the temporary key after execution.
+The fixture needs the explicit temporary /32 egress exception; remove it and the
+fixture container afterward. Never expose the fixture as a production route.
+
+`ops/recovery-check.py` verifies a 2400px physical screenshot, approval and live
+SSRF denials, then sends SIGKILL to **daoos-browser-browser-1** and checks durable
+task/session loss and reconnect. Run it only in an acceptance window with no
+real operator sessions. Its fixed container name intentionally cannot select an
+unrelated production service. It does not restart PostgreSQL or Caddy.
 
 For this audited host, `ops/compose-host.yaml` reuses the exact installed
 Chromium 1248 cache read-only, without mounting any user profiles. Do not blindly
@@ -93,6 +113,12 @@ system. Schedule this script using the organization's backup system after the
 backup destination and retention policy are chosen. No external destination is
 assumed. Test pg_restore into a fresh dedicated database and reopen a saved
 profile before relying on a backup. An untested backup is not proven recoverable.
+
+On 2026-11-14 pg_dump/pg_restore was verified against a separate disposable
+database in this dedicated PostgreSQL instance: 12 tables and session/task
+records were restored, then the temporary database and plaintext dump removed.
+The saved-profile cookie/localStorage roundtrip was separately verified live.
+This does not establish an offsite backup or full host-loss recovery procedure.
 
 Stop active tasks and close browsers before an upgrade to checkpoint profiles.
 On unexpected restart, persistent task/action records remain, live sessions

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "daoos-browser": {
+      "type": "streamable-http",
+      "url": "https://oknakomfort72.ru/browser/mcp",
+      "extensions": {
+        "com.openai": {
+          "auth": {
+            "type": "oauth",
+            "client": {"mode": "dcr"},
+            "baseScopes": ["read"],
+            "defaultScopes": ["read", "write"]
+          }
+        }
+      }
+    }
+  }
+}

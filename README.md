@@ -6,6 +6,9 @@ protected noVNC. This repository has no LLM engine or payment UI.
 
 **Acceptance status is recorded in [docs/report.md](docs/report.md).** Source
 implementation and unit tests alone do not constitute a deployed, accepted MVP.
+The deployed endpoint is `https://oknakomfort72.ru/browser/mcp`. The private
+[DAOOS Browser plugin](https://chatgpt.com/plugins/plugins_6af7cf5ae9788191b93f0d3730258a9c)
+requires the owner to connect OAuth; authenticated CRM acceptance requires manual login.
 
 - [Architecture](docs/architecture.md)
 - [Security and known limits](docs/security.md)

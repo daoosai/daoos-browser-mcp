@@ -13,6 +13,9 @@ window.onhashchange=()=>document.querySelector('h1').textContent=location.hash;
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        if self.path == '/tall':
+            self.send_response(200); self.send_header('Content-Type','text/html'); self.end_headers()
+            self.wfile.write(b'<!doctype html><title>Tall fixture</title><body style="margin:0"><div id="top" style="height:800px;background:rgb(255,0,0)">Top</div><div style="height:800px;background:rgb(0,255,0)">Middle</div><div style="height:800px;background:rgb(0,0,255)">Bottom</div></body>'); return
         if self.path == '/redirect-private':
             self.send_response(302); self.send_header('Location','http://169.254.169.254/latest/meta-data/'); self.end_headers(); return
         if self.path == '/download':

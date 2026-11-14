@@ -1,0 +1,22 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "daoos-browser",
+  "version": "0.1.0",
+  "description": "Control a shared Chromium browser through DAOOS MCP, inspect real screenshots and DOM, and hand control to an operator for manual login.",
+  "author": {"name": "DAOOS"},
+  "homepage": "https://github.com/daoosai/daoos-browser-mcp",
+  "repository": "https://github.com/daoosai/daoos-browser-mcp",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "DAOOS Browser",
+        "shortDescription": "Браузер, MCP и защищённый VNC",
+        "longDescription": "Универсальный браузер DAOOS: настоящие скриншоты, DOM, вкладки, задания и зашифрованные профили. Playwright и оператор видят один Chromium. Вход на сайты выполняется вручную через защищённый VNC. Сервис требует отдельного подключения OAuth.",
+        "developerName": "DAOOS",
+        "category": "Productivity",
+        "capabilities": ["Interactive"],
+        "defaultPrompt": "Открой разрешённый сайт через DAOOS Browser, покажи настоящий скриншот и опиши доступные элементы."
+      }
+    }
+  }
+}

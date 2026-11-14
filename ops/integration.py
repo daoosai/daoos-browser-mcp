@@ -19,6 +19,8 @@ import httpx2
 
 BASE = 'http://127.0.0.1:8000'
 PUBLIC = os.environ['PUBLIC_URL']
+AUTHORITY = __import__('urllib.parse',fromlist=['urlsplit']).urlsplit(PUBLIC).netloc
+ORIGIN = __import__('urllib.parse',fromlist=['urlsplit']).urlsplit(PUBLIC).scheme+'://'+AUTHORITY
 KEY = Path('/data/operator-key').read_text().strip()
 HEADERS = {'Authorization':'Bearer '+KEY,'Host':__import__('urllib.parse',fromlist=['urlsplit']).urlsplit(PUBLIC).netloc}
 class Checks(list):
@@ -88,7 +90,7 @@ async def main():
             assert not request.is_error,str(request.content)
             aid=request.structured_content['approval_id']
             async with httpx.AsyncClient(timeout=60) as http:
-                r=await http.post(BASE+'/api/approvals/'+aid,headers={**HEADERS,'Origin':PUBLIC},json={'approve':True})
+                r=await http.post(BASE+'/api/approvals/'+aid,headers={**HEADERS,'Origin':ORIGIN},json={'approve':True})
                 assert r.status_code==200,r.text
             click_args={'action':'click','session_id':sid,'params':{'selector':'#count','approval_id':aid},'request_id':uuid.uuid4().hex}
             first_click=await client.call_tool('browser_write',click_args)
@@ -129,7 +131,7 @@ async def main():
         finally:
             if sid:
                 async with httpx.AsyncClient(timeout=60) as http:
-                    await http.post(BASE+'/api/sessions/'+sid+'/control',headers={**HEADERS,'Origin':PUBLIC},json={'mode':'agent'})
+                    await http.post(BASE+'/api/sessions/'+sid+'/control',headers={**HEADERS,'Origin':ORIGIN},json={'mode':'agent'})
                 await write('close_session',sid)
         report['usage']=(await read('usage')).structured_content
     Path('/data/integration-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
@@ -140,13 +142,13 @@ async def vnc_handoff(sid, client):
     import struct
     import websockets
     async with httpx.AsyncClient(timeout=60) as http:
-        response=await http.post(BASE+'/api/sessions/'+sid+'/control',headers={**HEADERS,'Origin':PUBLIC},json={'mode':'manual'})
+        response=await http.post(BASE+'/api/sessions/'+sid+'/control',headers={**HEADERS,'Origin':ORIGIN},json={'mode':'manual'})
         assert response.status_code==200,response.text
     r=await client.call_tool('browser_write',{'action':'scroll','session_id':sid,'params':{},'request_id':uuid.uuid4().hex})
     assert r.is_error
     # Real authenticated WebSocket -> x11vnc -> SAME Xvfb/Chromium.
-    async with websockets.connect('ws://127.0.0.1:18131/api/vnc/'+sid,
-            host='127.0.0.1',port=8000,origin=PUBLIC,
+    async with websockets.connect('ws://'+AUTHORITY+'/api/vnc/'+sid,
+            host='127.0.0.1',port=8000,origin=ORIGIN,
             additional_headers={'Authorization':'Bearer '+KEY}) as ws:
         buffer=bytearray()
         async def exact(n):
@@ -165,7 +167,7 @@ async def vnc_handoff(sid, client):
         focused=await client.call_tool('browser_read',{'action':'inspect','session_id':sid,'params':{'selector':':focus'}})
         assert focused.structured_content['elements'][0]['tag']=='A',focused.content
     async with httpx.AsyncClient(timeout=60) as http:
-        response=await http.post(BASE+'/api/sessions/'+sid+'/control',headers={**HEADERS,'Origin':PUBLIC},json={'mode':'agent'})
+        response=await http.post(BASE+'/api/sessions/'+sid+'/control',headers={**HEADERS,'Origin':ORIGIN},json={'mode':'agent'})
         assert response.status_code==200,response.text
     r=await client.call_tool('browser_write',{'action':'scroll','session_id':sid,'params':{'y':100},'request_id':uuid.uuid4().hex})
     assert not r.is_error,str(r.content)

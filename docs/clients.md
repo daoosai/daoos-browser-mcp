@@ -6,6 +6,10 @@ TLS, protected-resource metadata and approved OAuth redirects before connecting.
 
 ## ChatGPT
 
+The deployed endpoint is `https://oknakomfort72.ru/browser/mcp`. The private
+[DAOOS Browser plugin](https://chatgpt.com/plugins/plugins_6af7cf5ae9788191b93f0d3730258a9c)
+is available for the owner to connect with OAuth. Its source contains no keys.
+
 Enable developer mode where available in the account/workspace, create a private
 MCP connection using the HTTPS endpoint and select OAuth. Follow the Browser
 consent page using an individually provisioned Browser API key, not a website
@@ -30,7 +34,7 @@ through its secret manager rather than committed to a file:
 
 ```toml
 [mcp_servers.daoos_browser]
-url = "https://YOUR_HOST/browser/mcp"
+url = "https://oknakomfort72.ru/browser/mcp"
 bearer_token_env_var = "DAOOS_BROWSER_API_KEY"
 tool_timeout_sec = 120
 ```
@@ -61,3 +65,23 @@ acceptance check and is not implied by an example configuration.
 6. Close with `save_profile=true`. Create a new session with that profile_id and
    verify the authorized page again. A profile saved before login is not an
    authorization persistence test.
+
+## Key delivery on the audited server
+
+An owner-only operator key is stored at `/data/operator-key`, and a separate
+read/write client key at `/data/chatgpt-key`, inside `daoos-browser-browser-1`.
+Retrieve them only through your existing authenticated server access, for example
+in your own private terminal (never paste the result into chat or Git):
+
+```sh
+# Run on the DAOOS host. Paste directly into the corresponding protected form.
+docker exec daoos-browser-browser-1 cat /data/chatgpt-key
+# Separate operator login credential:
+docker exec daoos-browser-browser-1 cat /data/operator-key
+```
+
+The client key goes on the Browser OAuth consent page; the operator key goes at
+`https://oknakomfort72.ru/browser/operator/login`. Site passwords are a third,
+independent credential and are entered only directly into the site's VNC screen.
+A session idle for 15 minutes closes automatically. Reopen its saved profile
+through MCP rather than assuming the previous live session still exists.

@@ -25,6 +25,18 @@ def png(image):
     return output.getvalue()
 
 
+async def scroll_and_paint(page, x, y):
+    # A timer alone can run before Chromium's compositor repaints the X display.
+    # Wait through two actual rendering frames after an instantaneous scroll.
+    position = await page.evaluate("""async p => {
+        window.scrollTo({left:p.x, top:p.y, behavior:'instant'});
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        return {x:scrollX, y:scrollY};
+    }""", {"x": x, "y": y})
+    await asyncio.sleep(.15)
+    return position
+
+
 async def capture(session, params):
     page = session.page
     viewport = page.viewport_size
@@ -47,15 +59,13 @@ async def capture(session, params):
         try:
             for y in range(0, size["h"], height):
                 for x in range(0, size["w"], width):
-                    await page.evaluate("p => window.scrollTo(p.x,p.y)", {"x": x, "y": y})
-                    await asyncio.sleep(.12)
-                    position = await page.evaluate("() => ({x:scrollX,y:scrollY})")
+                    position = await scroll_and_paint(page, x, y)
                     tile = await asyncio.to_thread(grab, display, width, height)
                     image.paste(tile, (round(position["x"]), round(position["y"])))
         finally:
             try:
                 async with asyncio.timeout(2):
-                    await page.evaluate("p => window.scrollTo(p.x,p.y)", {"x": size["x"], "y": size["y"]})
+                    await scroll_and_paint(page, size["x"], size["y"])
             except Exception: pass
     else:
         image = await asyncio.to_thread(grab, display, width, height)
